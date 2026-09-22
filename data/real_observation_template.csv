@@ -1,0 +1,2 @@
+observation_id,observation_date,store_type,arrival_time,service_start_time,service_end_time,counter_id,queue_length_on_arrival,item_count,payment_method,abandoned,notes
+

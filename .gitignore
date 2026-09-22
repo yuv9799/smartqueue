@@ -1,0 +1,34 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.idea/
+.vscode/
+smartqueue.db
+*.db-journal
+.env
+
+# Java and Maven generated files
+**/target/
+*.class
+*.log
+
+# IntelliJ generated files
+**/.idea/
+*.iml
+*.iws
+*.ipr
+
+# H2 runtime database
+backend/data/
+*.mv.db
+*.trace.db
+*.lock.db
+
+# Generated ML model files
+*.joblib
+*.pkl
+
+# Operating system files
+.DS_Store
+Thumbs.db

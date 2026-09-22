@@ -1,0 +1,2 @@
+"""SmartQueue application package."""
+

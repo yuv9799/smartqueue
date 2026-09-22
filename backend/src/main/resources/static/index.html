@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>SmartQueue Dashboard</title>
+
+  <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+
+<header class="topbar">
+  <div>
+    <h1>SmartQueue</h1>
+    <p>Intelligent physical checkout queue management</p>
+  </div>
+
+  <div class="live-indicator">
+    <span></span>
+    System Live
+  </div>
+</header>
+
+<main class="container">
+
+  <div id="message-box" class="message-box hidden"></div>
+
+  <section class="dashboard-grid">
+
+    <article class="panel">
+      <div class="panel-heading">
+        <div>
+          <p class="section-label">CUSTOMER</p>
+          <h2>Join Checkout Queue</h2>
+        </div>
+      </div>
+
+      <form id="join-form">
+
+        <label for="customerName">Customer name</label>
+        <input
+                id="customerName"
+                type="text"
+                maxlength="60"
+                placeholder="Enter customer name"
+                required
+        >
+
+        <label for="itemCount">Number of items</label>
+        <input
+                id="itemCount"
+                type="number"
+                min="1"
+                max="300"
+                placeholder="Example: 15"
+                required
+        >
+
+        <label for="paymentMethod">Payment method</label>
+        <select id="paymentMethod" required>
+          <option value="UPI">UPI</option>
+          <option value="CARD">Card</option>
+          <option value="CASH">Cash</option>
+        </select>
+
+        <label for="priorityType">Customer type</label>
+        <select id="priorityType" required>
+          <option value="REGULAR">Regular</option>
+          <option value="ASSISTANCE">Assistance required</option>
+        </select>
+
+        <button type="submit" class="primary-button">
+          Find Best Counter
+        </button>
+      </form>
+
+      <div id="assignment-result" class="assignment-result hidden">
+        <p>Token</p>
+        <h3 id="result-token">--</h3>
+
+        <div class="result-grid">
+          <div>
+            <span>Assigned counter</span>
+            <strong id="result-counter">--</strong>
+          </div>
+
+          <div>
+            <span>Estimated wait</span>
+            <strong id="result-wait">--</strong>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="panel">
+      <div class="panel-heading">
+        <div>
+          <p class="section-label">STORE STAFF</p>
+          <h2>Checkout Counters</h2>
+        </div>
+
+        <button id="refresh-button" class="secondary-button">
+          Refresh
+        </button>
+      </div>
+
+      <div id="counter-list" class="counter-list">
+        <p>Loading counters...</p>
+      </div>
+    </article>
+
+  </section>
+
+  <section class="panel queue-panel">
+
+    <div class="panel-heading">
+      <div>
+        <p class="section-label">LIVE OPERATIONS</p>
+        <h2>Active Queue</h2>
+      </div>
+
+      <span id="active-count" class="count-badge">0 customers</span>
+    </div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+        <tr>
+          <th>Token</th>
+          <th>Customer</th>
+          <th>Items</th>
+          <th>Counter</th>
+          <th>Payment</th>
+          <th>Status</th>
+          <th>Predicted time</th>
+          <th>Action</th>
+        </tr>
+        </thead>
+
+        <tbody id="queue-body">
+        <tr>
+          <td colspan="8" class="empty-state">
+            Loading active queue...
+          </td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </section>
+
+</main>
+
+<script src="/app.js"></script>
+
+</body>
+</html>

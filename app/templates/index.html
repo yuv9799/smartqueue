@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="SmartQueue retail checkout optimisation dashboard">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <span class="brand-mark">SQ</span>
+            <div>
+                <h1>SmartQueue</h1>
+                <p>Retail checkout control centre</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <span id="model-badge" class="badge">Checking predictor…</span>
+            <a class="ghost-button" href="/docs" target="_blank" rel="noreferrer">API Docs</a>
+        </div>
+    </header>
+
+    <main class="page-shell">
+        <section class="hero">
+            <div>
+                <p class="eyebrow">LIVE STORE OPERATIONS</p>
+                <h2>Shorter waits. Smarter counters.</h2>
+                <p class="hero-copy">Predict checkout time, distribute customers by workload, and give staff one clear operating view.</p>
+            </div>
+            <div class="demo-actions">
+                <button id="load-demo" class="secondary-button">Load demo queue</button>
+                <button id="reset-demo" class="danger-button">Reset demo</button>
+            </div>
+        </section>
+
+        <section id="stats" class="stats-grid" aria-label="Queue statistics"></section>
+
+        <section class="two-column-grid">
+            <article class="panel join-panel">
+                <div class="panel-heading">
+                    <div>
+                        <p class="eyebrow">CUSTOMER CHECK-IN</p>
+                        <h3>Join the checkout queue</h3>
+                    </div>
+                </div>
+                <form id="join-form">
+                    <label>
+                        Customer name
+                        <input name="customer_name" maxlength="60" placeholder="Enter a name" required>
+                    </label>
+                    <div class="form-row">
+                        <label>
+                            Basket items
+                            <input name="item_count" type="number" min="1" max="300" value="12" required>
+                        </label>
+                        <label>
+                            Payment
+                            <select name="payment_method">
+                                <option value="upi">UPI</option>
+                                <option value="card">Card</option>
+                                <option value="cash">Cash</option>
+                            </select>
+                        </label>
+                    </div>
+                    <label class="check-row">
+                        <input name="assistance" type="checkbox">
+                        Assistance queue required
+                    </label>
+                    <button class="primary-button" type="submit">Get smart assignment</button>
+                </form>
+                <div id="ticket" class="ticket hidden" role="status"></div>
+            </article>
+
+            <article class="panel">
+                <div class="panel-heading">
+                    <div>
+                        <p class="eyebrow">COUNTER LOAD</p>
+                        <h3>Checkout counters</h3>
+                    </div>
+                    <span class="auto-refresh">Auto-refresh: 5s</span>
+                </div>
+                <div id="counters" class="counter-list"></div>
+            </article>
+        </section>
+
+        <section class="panel queue-panel">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">ACTIVE QUEUE</p>
+                    <h3>Customer flow</h3>
+                </div>
+                <span id="last-updated" class="auto-refresh"></span>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Token</th>
+                            <th>Customer</th>
+                            <th>Basket</th>
+                            <th>Prediction</th>
+                            <th>Counter</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="queue-body"></tbody>
+                </table>
+            </div>
+            <div id="empty-state" class="empty-state hidden">
+                <span>✓</span>
+                <h4>No active queue</h4>
+                <p>Add a customer or load the demo queue to begin.</p>
+            </div>
+        </section>
+    </main>
+
+    <div id="toast" class="toast hidden" role="alert"></div>
+    <script src="/static/app.js"></script>
+</body>
+</html>
+
