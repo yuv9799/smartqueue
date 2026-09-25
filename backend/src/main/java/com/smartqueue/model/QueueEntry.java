@@ -195,6 +195,10 @@ public class QueueEntry {
         return counter;
     }
 
+    public void setCounter(CheckoutCounter counter) {
+        this.counter = counter;
+    }
+
     public LocalDateTime getArrivalTime() {
         return arrivalTime;
     }

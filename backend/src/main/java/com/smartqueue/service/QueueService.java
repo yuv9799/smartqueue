@@ -3,8 +3,11 @@ package com.smartqueue.service;
 import com.smartqueue.dto.JoinQueueRequest;
 import com.smartqueue.dto.QueueAssignmentResponse;
 import com.smartqueue.dto.QueueEntryResponse;
+import com.smartqueue.model.CheckoutCounter;
+import com.smartqueue.model.CounterStatus;
 import com.smartqueue.model.QueueEntry;
 import com.smartqueue.model.QueueStatus;
+import com.smartqueue.repository.CheckoutCounterRepository;
 import com.smartqueue.repository.QueueEntryRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -19,6 +22,7 @@ import java.util.List;
 public class QueueService {
 
     private final QueueEntryRepository queueEntryRepository;
+    private final CheckoutCounterRepository checkoutCounterRepository;
     private final CheckoutTimePredictor checkoutTimePredictor;
     private final MlPredictionClient mlPredictionClient;
     private final CounterAllocator counterAllocator;
@@ -26,12 +30,14 @@ public class QueueService {
 
     public QueueService(
             QueueEntryRepository queueEntryRepository,
+            CheckoutCounterRepository checkoutCounterRepository,
             CheckoutTimePredictor checkoutTimePredictor,
             MlPredictionClient mlPredictionClient,
             CounterAllocator counterAllocator,
             FairQueueSelector fairQueueSelector
     ) {
         this.queueEntryRepository = queueEntryRepository;
+        this.checkoutCounterRepository = checkoutCounterRepository;
         this.checkoutTimePredictor = checkoutTimePredictor;
         this.mlPredictionClient = mlPredictionClient;
         this.counterAllocator = counterAllocator;
@@ -271,6 +277,50 @@ public class QueueService {
 
         QueueEntry savedEntry =
                 queueEntryRepository.save(entry);
+
+        return QueueEntryResponse.from(savedEntry);
+    }
+
+    /**
+     * Moves a waiting customer to a different checkout counter.
+     *
+     * @param entryId       ID of the queue entry to reassign (must be WAITING)
+     * @param newCounterId  ID of the target counter (must be OPEN)
+     */
+    @Transactional
+    public QueueEntryResponse reassignCustomer(Long entryId, Long newCounterId) {
+
+        QueueEntry entry = queueEntryRepository
+                .findById(entryId)
+                .orElseThrow(() ->
+                        new IllegalStateException(
+                                "Queue entry not found with ID: " + entryId
+                        )
+                );
+
+        if (entry.getStatus() != QueueStatus.WAITING) {
+            throw new IllegalStateException(
+                    "Only a waiting customer can be reassigned. "
+                            + "Current status: " + entry.getStatus()
+            );
+        }
+
+        CheckoutCounter newCounter = checkoutCounterRepository
+                .findById(newCounterId)
+                .orElseThrow(() ->
+                        new IllegalStateException(
+                                "Counter not found with ID: " + newCounterId
+                        )
+                );
+
+        if (newCounter.getStatus() != CounterStatus.OPEN) {
+            throw new IllegalStateException(
+                    "Cannot reassign to a closed counter: " + newCounter.getName()
+            );
+        }
+
+        entry.setCounter(newCounter);
+        QueueEntry savedEntry = queueEntryRepository.save(entry);
 
         return QueueEntryResponse.from(savedEntry);
     }

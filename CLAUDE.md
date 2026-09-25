@@ -149,9 +149,9 @@ anything that could affect another contributor.
   Spring `${DB_PASSWORD}` resolves environment variables, not system properties.
 - `src/test/resources/application-test.properties` points at the same PostgreSQL
   as the app (deliberate — persistence tests target real PostgreSQL).
-- Full test suite = **13 tests** (8 QueueFeatureTests + 4 QueuePersistenceTests +
+- Full test suite = **17 tests** (12 QueueFeatureTests + 4 QueuePersistenceTests +
   1 BackendApplicationTests); passes with `DB_PASSWORD` set (verified 2026-09-25
-  after the prediction-first allocation fix).
+  after adding the 4 reassignment tests).
 - A background Python **ML sidecar service** (`ml_service/` FastAPI on port
   8001) provides runtime prediction; the backend's `MlPredictionClient`
   (`smartqueue.ml.base-url`) calls it. In tests it is mocked (`@MockitoBean` /
@@ -162,11 +162,12 @@ anything that could affect another contributor.
 ### VERIFIED DONE (source of truth = code + live runtime, not claims)
 
 - **Tests green** — full suite passes with `DB_PASSWORD=... mvn test`:
-  - `QueueFeatureTests` = 8 tests (cancellation ok/409-twice/404, history
-    pagination/page2/status filter, analytics overview, dashboard stats).
+  - `QueueFeatureTests` = 12 tests (cancellation ok/409-twice/404, history
+    pagination/page2/status filter, analytics overview, dashboard stats,
+    + reassignment: 200/404/409/409).
   - `QueuePersistenceTests` = 4 tests.
   - `BackendApplicationTests` = 1 (contextLoads).
-  - **Total: 13 tests, all pass. BUILD SUCCESS.**
+  - **Total: 17 tests, all pass. BUILD SUCCESS.**
 - **PostgreSQL live + correct.** Backend on :8080 connects to PostgreSQL
   (`jdbc:postgresql://localhost:5432/smartqueue`, user `smartqueue_user`, v16).
   `ddl-auto=update`. Entities: `CHECKOUT_COUNTER(id PK, name unique, status)`;
@@ -196,7 +197,9 @@ anything that could affect another contributor.
     counterId/from/to, max 500/page).
   - `POST /api/queue/counters/{counterId}/next` (start next; 409 if already
     serving or queue empty); `POST /api/queue/{id}/complete` (404 if not
-    SERVING); `POST /api/queue/{id}/cancel` (idempotent, 409 if re-cancel).
+    SERVING); `POST /api/queue/{id}/cancel` (idempotent, 409 if re-cancel);
+    `PATCH /api/queue/{id}/reassign` with `{"newCounterId":N}` (404 if entry
+    not found; 409 if entry not WAITING or target counter CLOSED).
   - `GET /api/counters`; `PATCH /api/counters/{id}/status` (safe-close 409 if
     active customers).
   - `GET /api/dashboard/stats`; `GET /api/reports/overview` (7d window,
@@ -211,9 +214,10 @@ anything that could affect another contributor.
   Complete/Cancel, history with status+counter filter + pagination, KPI cards
   + utilization/hourly bar charts (data-driven from /api/reports/overview, no
   fake values), 10s auto-refresh, XSS-escaped output.
-- **Git**: `main`, 4 commits (`28ed01f` MVP, `a0b597f` full merge,
+- **Git**: `main`, 5 commits (`28ed01f` MVP, `a0b597f` full merge,
   `a0ecd78` CLAUDE.md session progress, `ff4ca4b` prediction-first allocation
-  + ML persistence). `.gitignore` covers `*Zone.Identifier`, `.venv/`,
+  + ML persistence, `b4096bf` CLAUDE.md gaps 1+2 done). `.gitignore` covers
+  `*Zone.Identifier`, `.venv/`,
   `**/target/`, `*.joblib`, `*.pkl`, `*.mv.db`, etc. 74 tracked files.
   NO passwords/keys in committed files.
 
@@ -250,12 +254,20 @@ anything that could affect another contributor.
    verified directly in Maven output. Doc updated.
 4. **`startNextCustomer` empty-queue → 409** is fine; no `/api/queue/{id}/start`
    needed. Do NOT invent endpoints.
-5. **NEXT: Reassignment endpoint MISSING** — `PATCH /api/queue/{id}/reassign`
-   with body `{"newCounterId":2}`. QueueService needs `reassignCustomer()`;
-   needs `ReassignRequest` DTO + PATCH controller method. START HERE.
-6. **History UI date-range filter not exposed** — backend supports from/to via
-   `/api/queue/history?from=...&to=...`; frontend (app.js) only has status+
-   counter. Small frontend-only add: two datetime inputs → API params.
+5. **DONE: Reassignment endpoint (fixed 2026-09-25).**
+   `PATCH /api/queue/{id}/reassign` with body `{"newCounterId":N}` added.
+   Components: `ReassignRequest` DTO (`@NotNull Long newCounterId`);
+   `QueueController.reassignCustomer()` PATCH endpoint; multiple
+   `QueueService.reassignCustomer(entryId, newCounterId)` — validates entry
+   exists (404), status is WAITING (409 otherwise), target counter exists
+   (404) and is OPEN (409); updates the counter FK. Added `setCounter()` to
+   `QueueEntry`. 4 new QueueFeatureTests (success, 404 entry, 409 non-waiting,
+   409 closed counter). Verified live; 17/17 tests green.
+6. **DONE: History UI date-range filter (fixed 2026-09-25).**
+   `index.html` history panel now has two `datetime-local` inputs
+   (`history-from`, `history-to`); `app.js` `loadHistory()` reads them and
+   passes `from`/`to` to the existing `/api/queue/history?from=...&to=...`
+   backend support. Frontend-only change (no backend edits).
 7. **No role-based security (phase 7)** — not implemented. Options: simple
    customer/staff/manager role gate, or honest limitation section in docs.
 8. **No Python tests for `ml_service/`** — `tests/test_core.py` (3 tests) covers

@@ -3,6 +3,7 @@ package com.smartqueue.controller;
 import com.smartqueue.dto.JoinQueueRequest;
 import com.smartqueue.dto.QueueAssignmentResponse;
 import com.smartqueue.dto.QueueEntryResponse;
+import com.smartqueue.dto.ReassignRequest;
 import com.smartqueue.model.QueueStatus;
 import com.smartqueue.service.QueueService;
 import jakarta.validation.Valid;
@@ -70,5 +71,13 @@ public class QueueController {
             @PathVariable Long entryId
     ) {
         return queueService.cancelCustomer(entryId);
+    }
+
+    @PatchMapping("/{entryId}/reassign")
+    public QueueEntryResponse reassignCustomer(
+            @PathVariable Long entryId,
+            @Valid @RequestBody ReassignRequest request
+    ) {
+        return queueService.reassignCustomer(entryId, request.newCounterId());
     }
 }

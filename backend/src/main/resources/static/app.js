@@ -420,10 +420,14 @@ async function loadHistory(page = 0) {
     historyPage = page;
     const status = document.getElementById("history-status").value;
     const counterId = document.getElementById("history-counter").value;
+    const from = document.getElementById("history-from").value;
+    const to = document.getElementById("history-to").value;
 
     const params = new URLSearchParams({ page, size: 25 });
     if (status) params.set("status", status);
     if (counterId) params.set("counterId", counterId);
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
 
     try {
         const result = await request(`/api/queue/history?${params}`);
