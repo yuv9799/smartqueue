@@ -41,20 +41,33 @@ public class QueueService {
     @Transactional
     public QueueAssignmentResponse joinQueue(JoinQueueRequest request) {
 
-        var allocation = counterAllocator.allocateCounter();
-
-        // Snapshot of live queue state used as ML features
+        // --- 1. Snapshot queue state (read-only, no side effects) ---
         long queueLength =
                 queueEntryRepository.countByStatus(QueueStatus.WAITING)
                         + queueEntryRepository.countByStatus(QueueStatus.SERVING);
         int queuePosition = queueLength == 0 ? 1 : (int) queueLength + 1;
-        double counterLoadMinutes = allocation.estimatedWaitSeconds() / 60.0;
 
-        // ML-first prediction, rule-based fallback when the sidecar is down
-        int predictedSeconds;
-        String predictionSource;
-        Long estimatedWaitSeconds = allocation.estimatedWaitSeconds();
+        // --- 2. Lightweight rule-based estimate — no network, needed for
+        //        counter-steering before the ML call ---
+        var rulePrediction = checkoutTimePredictor.predict(
+                request.itemCount(),
+                request.paymentMethod()
+        );
+        int initialServiceSeconds = rulePrediction.seconds();
+
+        // --- 3. Pre-select the least-loaded counter (existing load only) to
+        //        feed a REAL counter-load into the ML feature vector. The final,
+        //        prediction-aware selection happens in step 5. ---
+        var preAllocation = counterAllocator.allocateCounter(0);
+        double counterLoadMinutes = preAllocation.estimatedWaitSeconds() / 60.0;
+
+        // --- 4. ML prediction (wait-time + abandonment; service-time from ML
+        //        is secondary; the rule estimate steers the counter choice) ---
+        int predictedSeconds = initialServiceSeconds;
+        String predictionSource = rulePrediction.source();
+        Long estimatedWaitSeconds = null;
         Double abandonmentRisk = null;
+
         boolean assistanceRequired =
                 request.priorityType() == com.smartqueue.model.PriorityType.ASSISTANCE;
 
@@ -62,7 +75,7 @@ public class QueueService {
                 request.itemCount(),
                 request.paymentMethod().name(),
                 assistanceRequired ? 1 : 0,
-                allocation.openCounterCount(),
+                preAllocation.openCounterCount(),
                 (int) queueLength,
                 queuePosition,
                 counterLoadMinutes
@@ -70,19 +83,26 @@ public class QueueService {
 
         var ml = mlPredictionClient.predict(mlFeatures);
         if (ml != null) {
-            predictedSeconds = ml.serviceSeconds();
+            // ML's wait/abandonment replace the rule estimate;
+            // service time may be upgraded to ML's if available.
             predictionSource = ml.source();
             estimatedWaitSeconds = ml.waitSeconds();
             abandonmentRisk = ml.abandonmentProbability();
-        } else {
-            var prediction = checkoutTimePredictor.predict(
-                    request.itemCount(),
-                    request.paymentMethod()
-            );
-            predictedSeconds = prediction.seconds();
-            predictionSource = prediction.source();
+            // ML service time may differ from the rule estimate; trust the
+            // trained model for the stored record when it is available.
+            predictedSeconds = ml.serviceSeconds();
         }
 
+        if (estimatedWaitSeconds == null) {
+            estimatedWaitSeconds = preAllocation.estimatedWaitSeconds();
+        }
+
+        // --- 5. Final counter allocation — now includes the new customer's
+        //        own predicted service time so the least-loaded counter wins
+        //        for THIS customer, not just for existing customers.
+        var allocation = counterAllocator.allocateCounter(initialServiceSeconds);
+
+        // --- 6. Persist ---
         QueueEntry entry = new QueueEntry(
                 request.customerName().trim(),
                 request.itemCount(),
@@ -90,7 +110,9 @@ public class QueueService {
                 request.priorityType(),
                 predictedSeconds,
                 predictionSource,
-                allocation.counter()
+                allocation.counter(),
+                estimatedWaitSeconds,
+                abandonmentRisk
         );
 
         QueueEntry savedEntry = queueEntryRepository.saveAndFlush(entry);

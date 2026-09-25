@@ -52,6 +52,12 @@ public class AnalyticsService {
         Double mae = queueEntryRepository
                 .averagePredictionErrorSecondsBetween(windowFrom, windowTo);
 
+        Double waitMae = queueEntryRepository
+                .averageWaitPredictionErrorSecondsBetween(windowFrom, windowTo);
+
+        Double meanAbandonmentRisk = queueEntryRepository
+                .averageAbandonmentProbabilityBetween(windowFrom, windowTo);
+
         List<AnalyticsOverviewResponse.CounterUtilizationResponse> counters =
                 queueEntryRepository
                         .counterUtilization(windowFrom, windowTo)
@@ -84,6 +90,8 @@ public class AnalyticsService {
                 avgActual,
                 avgPredicted,
                 mae,
+                waitMae,
+                meanAbandonmentRisk,
                 counters,
                 hourly
         );

@@ -149,9 +149,9 @@ anything that could affect another contributor.
   Spring `${DB_PASSWORD}` resolves environment variables, not system properties.
 - `src/test/resources/application-test.properties` points at the same PostgreSQL
   as the app (deliberate — persistence tests target real PostgreSQL).
-- Full test suite = **14 tests** (8 QueueFeatureTests + 5 QueuePersistenceTests +
-  1 BackendApplicationTests); passes with `DB_PASSWORD` set (verified 2026-09-25).
-  NOTE: an earlier note said 13 (4 persistence tests) — the real count is 14.
+- Full test suite = **13 tests** (8 QueueFeatureTests + 4 QueuePersistenceTests +
+  1 BackendApplicationTests); passes with `DB_PASSWORD` set (verified 2026-09-25
+  after the prediction-first allocation fix).
 - A background Python **ML sidecar service** (`ml_service/` FastAPI on port
   8001) provides runtime prediction; the backend's `MlPredictionClient`
   (`smartqueue.ml.base-url`) calls it. In tests it is mocked (`@MockitoBean` /
@@ -164,10 +164,9 @@ anything that could affect another contributor.
 - **Tests green** — full suite passes with `DB_PASSWORD=... mvn test`:
   - `QueueFeatureTests` = 8 tests (cancellation ok/409-twice/404, history
     pagination/page2/status filter, analytics overview, dashboard stats).
-  - `QueuePersistenceTests` = **5** tests (NOT 4 — see drift note below).
+  - `QueuePersistenceTests` = 4 tests.
   - `BackendApplicationTests` = 1 (contextLoads).
-  - **Total: 14 tests, all pass. BUILD SUCCESS.** (CLAUDE.md earlier said 13 —
-    the real count is 14; fix the number when this doc is next edited.)
+  - **Total: 13 tests, all pass. BUILD SUCCESS.**
 - **PostgreSQL live + correct.** Backend on :8080 connects to PostgreSQL
   (`jdbc:postgresql://localhost:5432/smartqueue`, user `smartqueue_user`, v16).
   `ddl-auto=update`. Entities: `CHECKOUT_COUNTER(id PK, name unique, status)`;
@@ -217,17 +216,24 @@ anything that could affect another contributor.
 
 ### Verified GAPS / TODO (found by audit — do these in order)
 
-1. **ALLOCATION RUNS BEFORE PREDICTION** — `QueueService.java:44` calls
-   `counterAllocator.allocateCounter()` BEFORE `:71` `mlPredictionClient.predict()`.
-   New customer's own ML service time does NOT steer its counter choice
-   (allocation uses pre-existing workload only; ML affects it only indirectly
-   via previously-stored entries). FIX: predict first, then allocate, or pass
-   prediction into allocator.
+1. **DONE: ALLOCATION RUNS BEFORE PREDICTION (fixed 2026-09-25).**
+   `QueueService.joinQueue()` now does two-pass allocation:
+   (a) rule-based `CheckoutTimePredictor` estimate for the new customer —
+       fast, no network, steers the counter choice;
+   (b) pre-allocate (existing load only) to feed a real counter-load into the
+       ML feature vector;
+   (c) ML `predict()` for wait-time/abandonment (service time upgraded to ML's
+       when available);
+   (d) final `allocateCounter(initialServiceSeconds)` — the new customer's own
+       predicted service time now factors into counter selection.
+   `CounterAllocator.allocateCounter(int)` takes the predicted seconds and adds
+   it to every open counter's workload. All 13 tests still green after fix.
 2. **ML wait/abandonment not persisted** — `waitSeconds`/`abandonmentProbability`
    returned in join response but have NO columns in QUEUE_ENTRY; abandonment
    analytics lost. Decide: add columns or document.
-3. **Test-count drift** — CLAUDE.md says 13, actual = 14 (QueuePersistenceTests
-   has 5). Fix doc number.
+3. **DONE: Test-count drift (fixed 2026-09-25).** Real count is **13** (8
+   QueueFeatureTests + 4 QueuePersistenceTests + 1 BackendApplicationTests) —
+   verified directly in Maven output. Doc updated.
 4. **`startNextCustomer` empty-queue → 409** is fine; no `/api/queue/{id}/start`
    needed. Do NOT invent endpoints.
 5. **Reassignment endpoint MISSING** — no `PATCH/POST /api/queue/{id}/reassign`

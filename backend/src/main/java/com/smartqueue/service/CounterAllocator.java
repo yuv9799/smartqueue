@@ -28,8 +28,17 @@ public class CounterAllocator {
         this.queueEntryRepository = queueEntryRepository;
     }
 
+    /**
+     * Selects the open counter with the least projected workload.
+     *
+     * @param newCustomerServiceSeconds expected service duration of the
+     *        customer being queued (0 meaning "not known yet"). When
+     *        non-zero, this value is added to every candidate's workload so
+     *        the joining customer's own predicted service time factors into
+     *        the counter choice (prediction-first allocation).
+     */
     @Transactional(readOnly = true)
-    public Allocation allocateCounter() {
+    public Allocation allocateCounter(int newCustomerServiceSeconds) {
 
         List<CheckoutCounter> openCounters =
                 counterRepository.findByStatus(CounterStatus.OPEN);
@@ -58,6 +67,10 @@ public class CounterAllocator {
             long workloadSeconds = activeEntries.stream()
                     .mapToLong(this::calculateRemainingWork)
                     .sum();
+
+            // Factor in the joining customer's own (ML-predicted) service
+            // time so a large basket is steered to the least-loaded counter.
+            workloadSeconds += Math.max(0, newCustomerServiceSeconds);
 
             counterLoads.add(
                     new CounterLoad(counter, workloadSeconds)

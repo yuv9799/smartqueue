@@ -58,6 +58,18 @@ public class QueueEntry {
     /** Seconds between arrival and service start. Computed when service starts. */
     private Integer actualWaitSeconds;
 
+    /**
+     * ML-predicted wait time in seconds, stored at join time.
+     * Enables analytics: predicted wait vs actual wait.
+     */
+    private Long estimatedWaitSeconds;
+
+    /**
+     * ML-predicted abandonment probability (0.0–1.0), stored at join time.
+     * Enables analytics: abandonment rate vs predicted risk.
+     */
+    private Double abandonmentProbability;
+
     private LocalDateTime cancelledAt;
 
     protected QueueEntry() {
@@ -71,7 +83,9 @@ public class QueueEntry {
             PriorityType priorityType,
             int predictedServiceSeconds,
             String predictionSource,
-            CheckoutCounter counter) {
+            CheckoutCounter counter,
+            Long estimatedWaitSeconds,
+            Double abandonmentProbability) {
 
         this.customerName = customerName;
         this.itemCount = itemCount;
@@ -80,6 +94,8 @@ public class QueueEntry {
         this.predictedServiceSeconds = predictedServiceSeconds;
         this.predictionSource = predictionSource;
         this.counter = counter;
+        this.estimatedWaitSeconds = estimatedWaitSeconds;
+        this.abandonmentProbability = abandonmentProbability;
         this.status = QueueStatus.WAITING;
 
         LocalDateTime now = LocalDateTime.now();
@@ -205,5 +221,13 @@ public class QueueEntry {
 
     public Integer getActualWaitSeconds() {
         return actualWaitSeconds;
+    }
+
+    public Long getEstimatedWaitSeconds() {
+        return estimatedWaitSeconds;
+    }
+
+    public Double getAbandonmentProbability() {
+        return abandonmentProbability;
     }
 }

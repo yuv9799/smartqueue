@@ -83,7 +83,9 @@ class QueuePersistenceTests {
                 PriorityType.REGULAR,
                 95,
                 "RULE_BASELINE_V1",
-                counter);
+                counter,
+                95L,
+                0.05);
         entry.setToken("SQ-PTEST-1");
 
         QueueEntry saved = queueEntryRepository.saveAndFlush(entry);
@@ -138,7 +140,9 @@ class QueuePersistenceTests {
                 PriorityType.REGULAR,
                 60,
                 "RULE_BASELINE_V1",
-                counter);
+                counter,
+                60L,
+                0.02);
         waiting.setToken("SQ-Q1");
         queueEntryRepository.saveAndFlush(waiting);
 

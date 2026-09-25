@@ -23,7 +23,11 @@ public record QueueEntryResponse(
         LocalDateTime serviceStartedAt,
         LocalDateTime serviceCompletedAt,
         Integer actualServiceSeconds,
-        LocalDateTime cancelledAt
+        LocalDateTime cancelledAt,
+        /** ML-predicted wait (seconds) stored at join time. */
+        Long estimatedWaitSeconds,
+        /** ML-predicted abandonment probability (0.0–1.0) stored at join time. */
+        Double abandonmentProbability
 ) {
 
     public static QueueEntryResponse from(QueueEntry entry) {
@@ -43,7 +47,9 @@ public record QueueEntryResponse(
                 entry.getServiceStartedAt(),
                 entry.getServiceCompletedAt(),
                 entry.getActualServiceSeconds(),
-                entry.getCancelledAt()
+                entry.getCancelledAt(),
+                entry.getEstimatedWaitSeconds(),
+                entry.getAbandonmentProbability()
         );
     }
 }

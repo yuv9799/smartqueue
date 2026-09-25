@@ -36,6 +36,20 @@ public record AnalyticsOverviewResponse(
         /** Mean absolute error of predictions for completed customers (seconds). */
         Double predictionMAESeconds,
 
+        /**
+         * Mean absolute error of ML-predicted wait times vs actual wait times
+         * for completed customers (seconds). Computed only for entries where
+         * both estimatedWaitSeconds and actualWaitSeconds are available.
+         */
+        Double waitPredictionMAESeconds,
+
+        /**
+         * Mean predicted abandonment probability (0–1) across all customers in
+         * the window, as predicted at join time by the ML model. Higher values
+         * indicate customers the model flagged as likely to abandon.
+         */
+        Double meanPredictedAbandonmentRisk,
+
         /** Per-counter completion counts, ordered by counter ID. */
         List<CounterUtilizationResponse> counterUtilization,
 

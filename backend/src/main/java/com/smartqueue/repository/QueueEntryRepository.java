@@ -164,4 +164,34 @@ public interface QueueEntryRepository
     List<Object[]> counterUtilization(
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to);
+
+    @Query(
+        "select avg(e.estimatedWaitSeconds) from QueueEntry e " +
+        "where e.estimatedWaitSeconds is not null " +
+        "  and e.arrivalTime between :from and :to"
+    )
+    Double averageEstimatedWaitSecondsBetween(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
+
+    @Query(
+        "select avg(e.abandonmentProbability) from QueueEntry e " +
+        "where e.abandonmentProbability is not null " +
+        "  and e.arrivalTime between :from and :to"
+    )
+    Double averageAbandonmentProbabilityBetween(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
+
+    @Query(
+        "select avg(abs(e.actualWaitSeconds - e.estimatedWaitSeconds)) " +
+        "from QueueEntry e " +
+        "where e.status = 'COMPLETED' " +
+        "  and e.actualWaitSeconds is not null " +
+        "  and e.estimatedWaitSeconds is not null " +
+        "  and e.arrivalTime between :from and :to"
+    )
+    Double averageWaitPredictionErrorSecondsBetween(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
 }
