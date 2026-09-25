@@ -1,102 +1,164 @@
 # SmartQueue
 
-SmartQueue is an ML-assisted retail checkout queue-management prototype. It
-predicts checkout service time and uses a min-heap to assign customers to the
-open counter with the smallest predicted workload.
+ML-assisted retail checkout queue management — assigns customers to the open
+counter expected to become free first based on predicted service time.
 
-## Current progress
+## Architecture
 
-- Customer check-in and unique digital token
-- Checkout-time prediction with ML-model support and a fallback formula
-- Min-heap-based least-workload counter assignment
-- Cashier actions: call next and complete checkout
-- Safe counter opening/closing rules
-- Live statistics and responsive management dashboard
-- Reproducible synthetic data and three-model comparison
-- SRS, architecture, hypothesis, evaluation plan, and roadmap
+```
+┌─────────────────────────────────────┐
+│  Frontend (static HTML/JS served    │
+│  by Spring Boot, port 8080)         │
+└──────────────┬──────────────────────┘
+               │  REST
+┌──────────────▼──────────────────────┐
+│  Spring Boot backend (Java 21)     │     ┌──────────────────────┐
+│  Port 8080                         │────▶│  ML sidecar (FastAPI)│
+│  PostgreSQL persistence             │     │  Port 8001           │
+│  HTML5 History API routing          │     │  smartqueue_ml_v1    │
+└─────────────────────────────────────┘     └──────────────────────┘
+```
 
-The included generated dataset is explicitly synthetic. It must not be
-presented as observed store data.
+### Stack
 
-## Technology
+- **Backend:** Spring Boot 4.1.1, Java 21, Maven 3.9
+- **Database:** PostgreSQL 16 (`hibernate ddl-auto=update`)
+- **ML:** FastAPI sidecar (`:8001`), XGBoost model (`smartqueue_ml_v1.joblib`),
+  rule-based fallback when ML is unavailable
+- **Frontend:** Vanilla JS, no framework, served as static resources
 
-- Python 3.10+
-- FastAPI and Uvicorn
-- SQLite for the portable MVP
-- HTML, CSS, and JavaScript
-- pandas and scikit-learn for model training
-- Python `heapq` for priority-queue allocation
+## Features
+
+- Customer check-in with digital token (`SQ-NNN`)
+- ML-predicted service time (XGBoost) with rule-based fallback
+- Least-workload counter assignment (min-heap)
+- Cashier actions: call next, complete checkout, cancel
+- Real-time active queue view
+- History with date-range filter and status/counter filters
+- Customer reassignment between counters (manager operation)
+- Counter open/close management
+- Estimated wait time and abandonment-risk scores per customer
+- Pagination on history
+
+## API Endpoints
+
+### Queue
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/queue/join` | Join queue — returns token, assigned counter, ML prediction |
+| `GET` | `/api/queue/active` | All WAITING/CALLED customers |
+| `GET` | `/api/queue/history` | Paginated history, filterable by status/counter/date range |
+| `POST` | `/api/queue/{id}/complete` | Mark service complete |
+| `POST` | `/api/queue/{id}/cancel` | Cancel/no-show customer |
+| `PATCH` | `/api/queue/{id}/reassign` | Reassign waiting customer to a different counter |
+| `POST` | `/api/queue/counters/{counterId}/next` | Call next customer to a specific counter |
+
+### Counters
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/counters` | List all counters with status |
+| `POST` | `/api/counters` | Create a new counter |
+| `GET` | `/api/counters/{id}` | Counter details |
+
+### ML
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/predict` | Returns `predicted_seconds` and `model_version` |
+| `GET` | `/health` | Health check |
 
 ## Quick start
 
-### Windows PowerShell
+### Prerequisites
 
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python scripts\generate_synthetic_data.py
-python scripts\train_model.py
-uvicorn app.main:app --reload
+- Java 21 (`JAVA_HOME` set)
+- Maven 3.9+
+- PostgreSQL 16 (running, database created)
+- Python 3.10+ with `uvicorn`, `fastapi`, `joblib`, `xgboost`, `scikit-learn`
+  (for ML sidecar)
+
+### 1. Database
+
+```sql
+CREATE DATABASE smartqueue_db;
+CREATE USER smartqueue_user WITH PASSWORD 'your_password';
+GRANT ALL PRIVILEGES ON DATABASE smartqueue_db TO smartqueue_user;
 ```
 
-### WSL, Linux, or macOS
+Set the password environment variable before running:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python scripts/generate_synthetic_data.py
-python scripts/train_model.py
-uvicorn app.main:app --reload
+export DB_PASSWORD=your_password
 ```
 
-Open:
-
-- Dashboard: <http://127.0.0.1:8000>
-- Interactive API documentation: <http://127.0.0.1:8000/docs>
-
-The database and three default counters are created automatically on first run.
-
-## Demonstration sequence
-
-1. Open the dashboard and select **Load demo queue**.
-2. Explain that predicted checkout durations form each counter's workload.
-3. Add a new customer and show the selected least-loaded counter.
-4. Select **Call next** on a counter.
-5. Complete the active checkout and show updated statistics.
-6. Open `/docs` to demonstrate and test the API contract.
-
-## Algorithm
-
-For each open counter, SmartQueue sums the predicted durations of assigned
-customers. It builds a min-heap containing:
-
-```text
-(predicted workload, counter id, counter name)
-```
-
-The minimum element is the counter expected to become free first. Building the
-heap costs `O(C)` and selecting a counter costs `O(log C)`, where `C` is the
-number of open counters. Assignment within a counter remains ordered; an
-assistance flag is available for a documented accessibility policy.
-
-## Test
+### 2. Build
 
 ```bash
-python -m unittest discover -s tests -v
+cd backend
+mvn package -DskipTests       # or: mvn compile
 ```
 
-## Important documents
+### 3. ML sidecar (optional, rule-based fallback used if unavailable)
 
-- [`docs/SRS.md`](docs/SRS.md) — scope, requirements, architecture, and data model
-- [`docs/PROJECT_PLAN.md`](docs/PROJECT_PLAN.md) — hypothesis, workstreams, ethics, and roadmap
-- [`docs/FRIDAY_DEMO.md`](docs/FRIDAY_DEMO.md) — demonstration order, script, and likely questions
-- `docs/MODEL_RESULTS.md` — generated after model training
-- `data/real_observation_template.csv` — anonymous real-data collection structure
+```bash
+cd ml_service
+uvicorn main:app --host 0.0.0.0 --port 8001 &
+```
 
-## Next development milestone
+### 4. Run
 
-Collect permission-based anonymised checkout observations, implement the
-baseline-versus-SmartQueue simulation, test the hypothesis, and then migrate
-the persistence layer to PostgreSQL for the final submission.
+```bash
+cd backend
+DB_PASSWORD=your_password java -jar target/backend-0.0.1-SNAPSHOT.jar
+```
+
+Open <http://localhost:8080>
+
+### 5. Tests
+
+```bash
+cd backend
+DB_PASSWORD=your_password mvn test
+# 17 tests: 12 feature tests + 4 persistence tests + 1 context test
+```
+
+## Security note
+
+No authentication or role-based access control is implemented. All endpoints
+are publicly accessible. For production deployment, add Spring Security with
+JWT or session-based authentication, role-based authorization (STAFF, MANAGER),
+and HTTPS. API key authentication on the ML sidecar is also recommended.
+
+## Project structure
+
+```
+SmartQueue/
+├── backend/          Spring Boot application
+│   └── src/
+│       ├── main/java/com/smartqueue/
+│       │   ├── controller/   REST controllers
+│       │   ├── dto/          Request/response records
+│       │   ├── model/        JPA entities
+│       │   ├── repository/   Spring Data JPA repositories
+│       │   └── service/      Business logic
+│       └── main/resources/
+│           ├── static/       Frontend (HTML/JS/CSS)
+│           └── application.properties
+├── ml/               Model training scripts
+├── ml_service/       FastAPI ML sidecar
+├── data/             CSV training data
+├── scripts/          Utility scripts
+├── docs/             Architecture docs
+└── legacy/           Archived Python/SQLite prototype
+```
+
+## Model
+
+The `smartqueue_ml_v1.joblib` XGBoost model predicts checkout duration from:
+`item_count`, `payment_method` (card/cash/digital encoded), `has_bulk_items`,
+`has_express`, `has_vip`, `hour_of_day`, `day_of_week`.
+
+If the ML sidecar is unreachable, a deterministic rule-based formula is used:
+`base_time + (item_count × per_item_time)`, adjusted by payment method.
