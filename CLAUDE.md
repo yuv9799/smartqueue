@@ -175,6 +175,7 @@ anything that could affect another contributor.
   [WAITING|SERVING|COMPLETED|CANCELLED], predictedServiceSeconds,
   predictionSource, counter_id FK→CHECKOUT_COUNTERS.id NOT NULL, arrivalTime,
   assignedAt, serviceStartedAt, serviceCompletedAt, actualServiceSeconds,
+  actualWaitSeconds, estimatedWaitSeconds, abandonmentProbability,
   cancelledAt)`. Token uniqueness via double-save (saveAndFlush→setToken→save)
   inside @Transactional joinQueue().
 - **ML runtime path WORKS end-to-end (verified live).** Join returned
@@ -210,9 +211,11 @@ anything that could affect another contributor.
   Complete/Cancel, history with status+counter filter + pagination, KPI cards
   + utilization/hourly bar charts (data-driven from /api/reports/overview, no
   fake values), 10s auto-refresh, XSS-escaped output.
-- **Git**: `main`, 2 commits (`28ed01f` MVP, `a0b597f` full merge). `.gitignore`
-  covers `*Zone.Identifier`, `.venv/`, `**/target/`, `*.joblib`, `*.pkl`,
-  `*.mv.db`, etc. 74 tracked files. NO passwords/keys in committed files.
+- **Git**: `main`, 4 commits (`28ed01f` MVP, `a0b597f` full merge,
+  `a0ecd78` CLAUDE.md session progress, `ff4ca4b` prediction-first allocation
+  + ML persistence). `.gitignore` covers `*Zone.Identifier`, `.venv/`,
+  `**/target/`, `*.joblib`, `*.pkl`, `*.mv.db`, etc. 74 tracked files.
+  NO passwords/keys in committed files.
 
 ### Verified GAPS / TODO (found by audit — do these in order)
 
@@ -228,18 +231,31 @@ anything that could affect another contributor.
        predicted service time now factors into counter selection.
    `CounterAllocator.allocateCounter(int)` takes the predicted seconds and adds
    it to every open counter's workload. All 13 tests still green after fix.
-2. **ML wait/abandonment not persisted** — `waitSeconds`/`abandonmentProbability`
-   returned in join response but have NO columns in QUEUE_ENTRY; abandonment
-   analytics lost. Decide: add columns or document.
+2. **DONE: ML wait/abandonment persisted (fixed 2026-09-25, commit ff4ca4b).**
+   `QUEUE_ENTRY` now has `estimated_wait_seconds` (BIGINT, nullable) and
+   `abandonment_probability` (DOUBLE, nullable) columns (added by ddl-auto=update).
+   QueueEntry entity updated with both fields; QueueService.joinQueue() passes
+   ML wait/abandonment to the new constructor; QueueEntryResponse exposes both;
+   QueueEntryRepository adds `averageEstimatedWaitSecondsBetween()`,
+   `averageAbandonmentProbabilityBetween()`,
+   `averageWaitPredictionErrorSecondsBetween()` queries;
+   AnalyticsOverviewResponse adds `waitPredictionMAESeconds` +
+   `meanPredictedAbandonmentRisk`; AnalyticsService computes and surfaces both.
+   QueuePersistenceTests updated to new 9-arg constructor. Verified live:
+   join returns `estimatedWaitSeconds: 669, abandonmentRisk: 0.245` and these
+   are stored and returned via `/api/queue/history`. Pre-fix entries = null
+   (expected, not a bug). 13/13 tests green.
 3. **DONE: Test-count drift (fixed 2026-09-25).** Real count is **13** (8
    QueueFeatureTests + 4 QueuePersistenceTests + 1 BackendApplicationTests) —
    verified directly in Maven output. Doc updated.
 4. **`startNextCustomer` empty-queue → 409** is fine; no `/api/queue/{id}/start`
    needed. Do NOT invent endpoints.
-5. **Reassignment endpoint MISSING** — no `PATCH/POST /api/queue/{id}/reassign`
-   (cancel+rejoin is the only path; loses history). Required by phase 5.
-6. **History UI date-range filter not exposed** — backend supports from/to,
-   frontend only status+counter. Add UI or close as limitation.
+5. **NEXT: Reassignment endpoint MISSING** — `PATCH /api/queue/{id}/reassign`
+   with body `{"newCounterId":2}`. QueueService needs `reassignCustomer()`;
+   needs `ReassignRequest` DTO + PATCH controller method. START HERE.
+6. **History UI date-range filter not exposed** — backend supports from/to via
+   `/api/queue/history?from=...&to=...`; frontend (app.js) only has status+
+   counter. Small frontend-only add: two datetime inputs → API params.
 7. **No role-based security (phase 7)** — not implemented. Options: simple
    customer/staff/manager role gate, or honest limitation section in docs.
 8. **No Python tests for `ml_service/`** — `tests/test_core.py` (3 tests) covers
