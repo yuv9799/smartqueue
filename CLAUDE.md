@@ -149,9 +149,126 @@ anything that could affect another contributor.
   Spring `${DB_PASSWORD}` resolves environment variables, not system properties.
 - `src/test/resources/application-test.properties` points at the same PostgreSQL
   as the app (deliberate — persistence tests target real PostgreSQL).
-- Full test suite = 13 tests (8 QueueFeatureTests + 4 QueuePersistenceTests +
-  1 BackendApplicationTests); passes with `DB_PASSWORD` set.
+- Full test suite = **14 tests** (8 QueueFeatureTests + 5 QueuePersistenceTests +
+  1 BackendApplicationTests); passes with `DB_PASSWORD` set (verified 2026-09-25).
+  NOTE: an earlier note said 13 (4 persistence tests) — the real count is 14.
 - A background Python **ML sidecar service** (`ml_service/` FastAPI on port
   8001) provides runtime prediction; the backend's `MlPredictionClient`
   (`smartqueue.ml.base-url`) calls it. In tests it is mocked (`@MockitoBean` /
   test config with unreachable URL).
+
+## Session Progress (last audit: 2026-09-25)
+
+### VERIFIED DONE (source of truth = code + live runtime, not claims)
+
+- **Tests green** — full suite passes with `DB_PASSWORD=... mvn test`:
+  - `QueueFeatureTests` = 8 tests (cancellation ok/409-twice/404, history
+    pagination/page2/status filter, analytics overview, dashboard stats).
+  - `QueuePersistenceTests` = **5** tests (NOT 4 — see drift note below).
+  - `BackendApplicationTests` = 1 (contextLoads).
+  - **Total: 14 tests, all pass. BUILD SUCCESS.** (CLAUDE.md earlier said 13 —
+    the real count is 14; fix the number when this doc is next edited.)
+- **PostgreSQL live + correct.** Backend on :8080 connects to PostgreSQL
+  (`jdbc:postgresql://localhost:5432/smartqueue`, user `smartqueue_user`, v16).
+  `ddl-auto=update`. Entities: `CHECKOUT_COUNTER(id PK, name unique, status)`;
+  `QUEUE_ENTRY(id PK, token unique SQ-%04d from DB id, customerName, itemCount,
+  paymentMethod[UPI|CARD|CASH], priorityType[REGULAR|ASSISTANCE], status
+  [WAITING|SERVING|COMPLETED|CANCELLED], predictedServiceSeconds,
+  predictionSource, counter_id FK→CHECKOUT_COUNTERS.id NOT NULL, arrivalTime,
+  assignedAt, serviceStartedAt, serviceCompletedAt, actualServiceSeconds,
+  cancelledAt)`. Token uniqueness via double-save (saveAndFlush→setToken→save)
+  inside @Transactional joinQueue().
+- **ML runtime path WORKS end-to-end (verified live).** Join returned
+  `predictionSource: "smartqueue_ml_v1"`, `abandonmentRisk: 0.015`,
+  `estimatedWaitSeconds`. Flow: backend RestClient (2s timeout) → FastAPI
+  sidecar :8001 → `ml/models/smartqueue_ml_v1.joblib` (XGBoost bundle:
+  service_model 450 trees, wait_model 500 trees, abandon_model 400 trees,
+  + feature lists/metrics) → response → stored QueueEntry. **No hardcoded
+  `/home/kiit/...` paths in any `.py`/`.java`** — ml_service uses
+  `PROJECT_ROOT = Path(__file__).resolve().parents[1]` + `ML_MODEL_PATH` env
+  override. Fallback = `CheckoutTimePredictor` `RULE_BASELINE_V1` (clamped
+  45–900s) when sidecar unreachable/null; genuinely exercised in tests.
+- **API surface (all live and tested):**
+  - `POST /api/queue/join` 201 — token + counter + predictedServiceSeconds +
+    estimatedWaitSeconds + abandonmentRisk; allocation = least-workload open
+    counter (min-heap over active workload).
+  - `GET /api/queue/active`; `GET /api/queue/history` (page/size/status/
+    counterId/from/to, max 500/page).
+  - `POST /api/queue/counters/{counterId}/next` (start next; 409 if already
+    serving or queue empty); `POST /api/queue/{id}/complete` (404 if not
+    SERVING); `POST /api/queue/{id}/cancel` (idempotent, 409 if re-cancel).
+  - `GET /api/counters`; `PATCH /api/counters/{id}/status` (safe-close 409 if
+    active customers).
+  - `GET /api/dashboard/stats`; `GET /api/reports/overview` (7d window,
+    counterUtilization + hourlyDistribution); `GET /` ping.
+  - `GlobalExceptionHandler`: MethodArgumentNotValid→400 (field map),
+    HttpMessageNotReadable→400, IllegalState → 404 if "not found" else 409.
+- **FairQueueSelector PRESERVED** (per directive) — priority jump (ASSISTANCE
+  up to 2 positions) + starvation guard (REGULAR unstarves after 10 min);
+  used by startNextCustomer. CounterAllocator is PriorityQueue min-heap.
+- **Frontend** (static SPA, served by backend): 8 stat cards, join form,
+  assignment panel, counter Start-Next/Open-Closed, active queue with
+  Complete/Cancel, history with status+counter filter + pagination, KPI cards
+  + utilization/hourly bar charts (data-driven from /api/reports/overview, no
+  fake values), 10s auto-refresh, XSS-escaped output.
+- **Git**: `main`, 2 commits (`28ed01f` MVP, `a0b597f` full merge). `.gitignore`
+  covers `*Zone.Identifier`, `.venv/`, `**/target/`, `*.joblib`, `*.pkl`,
+  `*.mv.db`, etc. 74 tracked files. NO passwords/keys in committed files.
+
+### Verified GAPS / TODO (found by audit — do these in order)
+
+1. **ALLOCATION RUNS BEFORE PREDICTION** — `QueueService.java:44` calls
+   `counterAllocator.allocateCounter()` BEFORE `:71` `mlPredictionClient.predict()`.
+   New customer's own ML service time does NOT steer its counter choice
+   (allocation uses pre-existing workload only; ML affects it only indirectly
+   via previously-stored entries). FIX: predict first, then allocate, or pass
+   prediction into allocator.
+2. **ML wait/abandonment not persisted** — `waitSeconds`/`abandonmentProbability`
+   returned in join response but have NO columns in QUEUE_ENTRY; abandonment
+   analytics lost. Decide: add columns or document.
+3. **Test-count drift** — CLAUDE.md says 13, actual = 14 (QueuePersistenceTests
+   has 5). Fix doc number.
+4. **`startNextCustomer` empty-queue → 409** is fine; no `/api/queue/{id}/start`
+   needed. Do NOT invent endpoints.
+5. **Reassignment endpoint MISSING** — no `PATCH/POST /api/queue/{id}/reassign`
+   (cancel+rejoin is the only path; loses history). Required by phase 5.
+6. **History UI date-range filter not exposed** — backend supports from/to,
+   frontend only status+counter. Add UI or close as limitation.
+7. **No role-based security (phase 7)** — not implemented. Options: simple
+   customer/staff/manager role gate, or honest limitation section in docs.
+8. **No Python tests for `ml_service/`** — `tests/test_core.py` (3 tests) covers
+   ONLY legacy `app/` allocator/predictor. Add ml_service endpoint tests.
+9. **Docs STALE / MISSING:**
+   - Root `README.md` STILL describes legacy **Python/FastAPI/SQLite** stack —
+     must be rewritten to Spring Boot 4 + PostgreSQL + ML sidecar.
+   - `docs/` has only `DATABASE_POSTGRESQL.md`, `ML_INTEGRATION.md`,
+     `MODEL_RESULTS.md` (RandomForest — stale vs XGBoost bundle),
+     `PROJECT_PLAN.md`, `SRS.md` (ERD shows FastAPI), `FRIDAY_DEMO.md`.
+   - MISSING: `UPDATES.md`, `docs/DATABASE.md`, `docs/ML.md`, `docs/API.md`,
+     `docs/TESTING.md`, `docs/ARCHITECTURE.md`, `docs/diagrams/` (ERD + DFD
+     L0/L1/L2).
+10. **Architecture cleanup (phase 9):**
+    - **187 `*:Zone.Identifier` ADS files** on disk (gitignored, so not
+      committed) — delete; `.git/refs/heads/main:Zone.Identifier` causes a
+      broken-ref warning on every git command.
+    - `backend/data/smartqueue.mv.db` (49KB H2 leftover) — delete.
+    - `backend/target/` (53MB build output), `.venv/` (799MB) — untracked,
+      save-only; safe to remove locally, not packaged.
+    - Legacy `app/` + `scripts/train_model.py` +
+      `scripts/generate_synthetic_data.py` + `tests/test_core.py` +
+      `requirements.txt` → move under `legacy/` (or document as LEGACY).
+    - `ml/checkout_model.joblib` (RandomForest, legacy) vs
+      `ml/models/smartqueue_ml_v1.joblib` (active XGBoost bundle) — joblib
+      files are gitignored; document how model ships (re-train script +
+      `scripts/train_ml_models.py`).
+11. **SmartQueue_Final packaging** (same parent dir; NO target/, .venv/,
+    .class, logs, ADS files, secrets) + 24-item owner report — NOT started.
+12. **Runtime env**: `mvn` NOT on PATH in WSL sessions — use
+    `~/tools/apache-maven-3.9.16/bin/mvn` with `JAVA_HOME=~/tools/jdk-21.0.12.1+1`;
+    `mvnw` wrapper is present but bare (no distribution downloaded). Run tests:
+    `DB_PASSWORD=... mvn test` (env var, NOT -D).
+
+### HOW TO RUN (verified)
+- Backend: `DB_PASSWORD=... java -jar backend/target/backend-0.0.1-SNAPSHOT.jar` (:8080)
+- ML sidecar: `.venv/bin/python -m uvicorn ml_service.service:app --port 8001`
+- Tests: `cd backend && DB_PASSWORD=... ~/tools/apache-maven-3.9.16/bin/mvn test`
