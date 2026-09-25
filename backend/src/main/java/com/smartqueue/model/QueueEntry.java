@@ -55,6 +55,11 @@ public class QueueEntry {
 
     private Integer actualServiceSeconds;
 
+    /** Seconds between arrival and service start. Computed when service starts. */
+    private Integer actualWaitSeconds;
+
+    private LocalDateTime cancelledAt;
+
     protected QueueEntry() {
         // Required by JPA
     }
@@ -94,6 +99,12 @@ public class QueueEntry {
 
         this.status = QueueStatus.SERVING;
         this.serviceStartedAt = LocalDateTime.now();
+
+        long waitSeconds = Duration.between(
+                arrivalTime,
+                serviceStartedAt
+        ).toSeconds();
+        this.actualWaitSeconds = (int) Math.max(0, waitSeconds);
     }
 
     public void completeService() {
@@ -111,6 +122,21 @@ public class QueueEntry {
         ).toSeconds();
 
         this.actualServiceSeconds = (int) Math.max(1, duration);
+    }
+
+    public void cancel() {
+        if (status == QueueStatus.COMPLETED) {
+            throw new IllegalStateException(
+                    "A completed customer cannot be cancelled");
+        }
+
+        if (status == QueueStatus.CANCELLED) {
+            throw new IllegalStateException(
+                    "This customer has already been cancelled");
+        }
+
+        this.status = QueueStatus.CANCELLED;
+        this.cancelledAt = LocalDateTime.now();
     }
 
     public Long getId() {
@@ -171,5 +197,13 @@ public class QueueEntry {
 
     public Integer getActualServiceSeconds() {
         return actualServiceSeconds;
+    }
+
+    public LocalDateTime getCancelledAt() {
+        return cancelledAt;
+    }
+
+    public Integer getActualWaitSeconds() {
+        return actualWaitSeconds;
     }
 }

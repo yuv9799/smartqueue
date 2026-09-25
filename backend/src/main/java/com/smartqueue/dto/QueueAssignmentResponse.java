@@ -20,12 +20,14 @@ public record QueueAssignmentResponse(
         Long counterId,
         String counterName,
         long estimatedWaitSeconds,
+        Double abandonmentRisk,
         LocalDateTime arrivalTime
 ) {
 
     public static QueueAssignmentResponse from(
             QueueEntry entry,
-            long estimatedWaitSeconds) {
+            long estimatedWaitSeconds,
+            Double abandonmentRisk) {
 
         return new QueueAssignmentResponse(
                 entry.getId(),
@@ -40,6 +42,7 @@ public record QueueAssignmentResponse(
                 entry.getCounter().getId(),
                 entry.getCounter().getName(),
                 estimatedWaitSeconds,
+                abandonmentRisk,
                 entry.getArrivalTime()
         );
     }

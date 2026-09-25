@@ -32,3 +32,6 @@ backend/data/
 # Operating system files
 .DS_Store
 Thumbs.db
+
+# Windows Zone.Identifier ADS files (copied from Windows)
+*Zone.Identifier

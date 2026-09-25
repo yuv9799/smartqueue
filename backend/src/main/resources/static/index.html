@@ -27,6 +27,58 @@
 
   <div id="message-box" class="message-box hidden"></div>
 
+  <section class="stats-grid">
+
+    <article class="stat-card">
+      <p>Active Customers</p>
+      <h2 id="stat-active">0</h2>
+      <span>Waiting or serving</span>
+    </article>
+
+    <article class="stat-card">
+      <p>Waiting</p>
+      <h2 id="stat-waiting">0</h2>
+      <span>Customers in queue</span>
+    </article>
+
+    <article class="stat-card">
+      <p>Serving</p>
+      <h2 id="stat-serving">0</h2>
+      <span>Currently at counters</span>
+    </article>
+
+    <article class="stat-card">
+      <p>Completed</p>
+      <h2 id="stat-completed">0</h2>
+      <span>Recorded checkouts</span>
+    </article>
+
+    <article class="stat-card">
+      <p>Open Counters</p>
+      <h2 id="stat-counters">0 / 0</h2>
+      <span>Available counters</span>
+    </article>
+
+    <article class="stat-card">
+      <p>Average Prediction</p>
+      <h2 id="stat-predicted">0 sec</h2>
+      <span>Expected service time</span>
+    </article>
+
+    <article class="stat-card">
+      <p>Average Actual</p>
+      <h2 id="stat-actual">0 sec</h2>
+      <span>Observed service time</span>
+    </article>
+
+    <article class="stat-card">
+      <p>Prediction MAE</p>
+      <h2 id="stat-mae">0 sec</h2>
+      <span>Average prediction error</span>
+    </article>
+
+  </section>
+
   <section class="dashboard-grid">
 
     <article class="panel">
@@ -147,6 +199,89 @@
         </tr>
         </tbody>
       </table>
+    </div>
+
+  </section>
+
+  <section class="panel queue-panel">
+
+    <div class="panel-heading">
+      <div>
+        <p class="section-label">RECORDS</p>
+        <h2>Queue History</h2>
+      </div>
+
+      <div class="history-filters">
+        <select id="history-status">
+          <option value="">All statuses</option>
+          <option value="WAITING">Waiting</option>
+          <option value="SERVING">Serving</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+
+        <select id="history-counter">
+          <option value="">All counters</option>
+        </select>
+
+        <button id="history-apply" class="secondary-button">
+          Apply
+        </button>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+        <tr>
+          <th>Token</th>
+          <th>Customer</th>
+          <th>Counter</th>
+          <th>Status</th>
+          <th>Arrived</th>
+          <th>Wait</th>
+          <th>Service</th>
+          <th>Cancelled at</th>
+        </tr>
+        </thead>
+
+        <tbody id="history-body">
+        <tr>
+          <td colspan="8" class="empty-state">
+            Loading history...
+          </td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="history-pager">
+      <button id="history-prev" class="secondary-button" disabled>
+        Previous
+      </button>
+      <span id="history-page-info">Page 1</span>
+      <button id="history-next" class="secondary-button">
+        Next
+      </button>
+    </div>
+
+  </section>
+
+  <section class="panel queue-panel">
+
+    <div class="panel-heading">
+      <div>
+        <p class="section-label">REPORTS</p>
+        <h2>Analytics (last 7 days)</h2>
+      </div>
+
+      <button id="reports-refresh" class="secondary-button">
+        Refresh Reports
+      </button>
+    </div>
+
+    <div id="reports-content" class="reports-content">
+      <p>Loading reports...</p>
     </div>
 
   </section>

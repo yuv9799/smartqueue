@@ -1,0 +1,11 @@
+# SmartQueue ML sidecar dependencies
+# (Python 3.10+, these are the runtime deps to serve predictions;
+#  they are a subset of what scripts/train_ml_models.py needs)
+fastapi>=0.110
+uvicorn>=0.29
+pydantic>=2.6
+joblib>=1.3
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.4
+xgboost>=2.0

@@ -71,7 +71,8 @@ public class CounterAllocator {
 
         return new Allocation(
                 bestCounter.counter(),
-                bestCounter.workloadSeconds()
+                bestCounter.workloadSeconds(),
+                openCounters.size()
         );
     }
 
@@ -120,6 +121,7 @@ public class CounterAllocator {
 
     public record Allocation(
             CheckoutCounter counter,
-            long estimatedWaitSeconds) {
+            long estimatedWaitSeconds,
+            int openCounterCount) {
     }
 }

@@ -1,11 +1,10 @@
 package com.smartqueue.controller;
 
+import com.smartqueue.dto.CounterStatusUpdateRequest;
 import com.smartqueue.model.CheckoutCounter;
-import com.smartqueue.repository.CheckoutCounterRepository;
-import org.springframework.data.domain.Sort;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import com.smartqueue.service.CounterService;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -13,16 +12,25 @@ import java.util.List;
 @RequestMapping("/api/counters")
 public class CounterController {
 
-    private final CheckoutCounterRepository counterRepository;
+    private final CounterService counterService;
 
-    public CounterController(
-
-            CheckoutCounterRepository counterRepository) {
-        this.counterRepository = counterRepository;
+    public CounterController(CounterService counterService) {
+        this.counterService = counterService;
     }
 
     @GetMapping
-    public List<CheckoutCounter> getAllCounters() {
-        return counterRepository.findAll(Sort.by("id"));
+    public List<CheckoutCounter> getCounters() {
+        return counterService.getAllCounters();
+    }
+
+    @PatchMapping("/{counterId}/status")
+    public CheckoutCounter updateCounterStatus(
+            @PathVariable Long counterId,
+            @Valid @RequestBody CounterStatusUpdateRequest request
+    ) {
+        return counterService.updateCounterStatus(
+                counterId,
+                request
+        );
     }
 }

@@ -11,6 +11,8 @@ public interface CheckoutCounterRepository
 
     List<CheckoutCounter> findByStatus(CounterStatus status);
 
+    long countByStatus(CounterStatus status);
+
     boolean existsByName(String name);
 }
 
