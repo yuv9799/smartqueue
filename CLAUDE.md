@@ -214,15 +214,20 @@ anything that could affect another contributor.
   Complete/Cancel, history with status+counter filter + pagination, KPI cards
   + utilization/hourly bar charts (data-driven from /api/reports/overview, no
   fake values), 10s auto-refresh, XSS-escaped output.
-- **Git**: `main`, 10 commits (`28ed01f` MVP, `a0b597f` full merge,
+- **Git**: `main`, 11 commits (`28ed01f` MVP, `a0b597f` full merge,
   `a0ecd78` CLAUDE.md session progress, `ff4ca4b` prediction-first allocation
   + ML persistence, `b4096bf` CLAUDE.md gaps 1+2 done, `4d834e1` gaps 5+6
   reassign endpoint + date filter, `0280c31` gap 10 legacy archive,
   `4de896a` README rewrite, `52edf76` gap 8 ml_service tests, `5ab68f4` gap 9
-  docs). `.gitignore` covers
+  docs, `05eb1a9` serve SPA at `/`). `.gitignore` covers
   `*Zone.Identifier`, `.venv/`,
   `**/target/`, `*.joblib`, `*.pkl`, `*.mv.db`, etc. 74 tracked files.
   NO passwords/keys in committed files.
+- **SPA at `/` fix (commit 05eb1a9).** `HomeController` was a
+  `@RestController` returning JSON for `/`, so a browser (Accept: text/html)
+  got **406**. Changed it to `@Controller` → `forward:/index.html` so the
+  static SPA loads when navigating to `http://localhost:8080/`. Verified live
+  (200 + index.html) and all 17 tests still pass.
 
 ### Verified GAPS / TODO (found by audit — do these in order)
 
