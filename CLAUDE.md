@@ -214,9 +214,12 @@ anything that could affect another contributor.
   Complete/Cancel, history with status+counter filter + pagination, KPI cards
   + utilization/hourly bar charts (data-driven from /api/reports/overview, no
   fake values), 10s auto-refresh, XSS-escaped output.
-- **Git**: `main`, 5 commits (`28ed01f` MVP, `a0b597f` full merge,
+- **Git**: `main`, 10 commits (`28ed01f` MVP, `a0b597f` full merge,
   `a0ecd78` CLAUDE.md session progress, `ff4ca4b` prediction-first allocation
-  + ML persistence, `b4096bf` CLAUDE.md gaps 1+2 done). `.gitignore` covers
+  + ML persistence, `b4096bf` CLAUDE.md gaps 1+2 done, `4d834e1` gaps 5+6
+  reassign endpoint + date filter, `0280c31` gap 10 legacy archive,
+  `4de896a` README rewrite, `52edf76` gap 8 ml_service tests, `5ab68f4` gap 9
+  docs). `.gitignore` covers
   `*Zone.Identifier`, `.venv/`,
   `**/target/`, `*.joblib`, `*.pkl`, `*.mv.db`, etc. 74 tracked files.
   NO passwords/keys in committed files.
@@ -268,35 +271,35 @@ anything that could affect another contributor.
    (`history-from`, `history-to`); `app.js` `loadHistory()` reads them and
    passes `from`/`to` to the existing `/api/queue/history?from=...&to=...`
    backend support. Frontend-only change (no backend edits).
-7. **No role-based security (phase 7)** — not implemented. Options: simple
-   customer/staff/manager role gate, or honest limitation section in docs.
-8. **No Python tests for `ml_service/`** — `tests/test_core.py` (3 tests) covers
-   ONLY legacy `app/` allocator/predictor. Add ml_service endpoint tests.
-9. **Docs STALE / MISSING:**
-   - Root `README.md` STILL describes legacy **Python/FastAPI/SQLite** stack —
-     must be rewritten to Spring Boot 4 + PostgreSQL + ML sidecar.
-   - `docs/` has only `DATABASE_POSTGRESQL.md`, `ML_INTEGRATION.md`,
-     `MODEL_RESULTS.md` (RandomForest — stale vs XGBoost bundle),
-     `PROJECT_PLAN.md`, `SRS.md` (ERD shows FastAPI), `FRIDAY_DEMO.md`.
-   - MISSING: `UPDATES.md`, `docs/DATABASE.md`, `docs/ML.md`, `docs/API.md`,
-     `docs/TESTING.md`, `docs/ARCHITECTURE.md`, `docs/diagrams/` (ERD + DFD
-     L0/L1/L2).
-10. **Architecture cleanup (phase 9):**
-    - **187 `*:Zone.Identifier` ADS files** on disk (gitignored, so not
-      committed) — delete; `.git/refs/heads/main:Zone.Identifier` causes a
-      broken-ref warning on every git command.
-    - `backend/data/smartqueue.mv.db` (49KB H2 leftover) — delete.
-    - `backend/target/` (53MB build output), `.venv/` (799MB) — untracked,
-      save-only; safe to remove locally, not packaged.
-    - Legacy `app/` + `scripts/train_model.py` +
-      `scripts/generate_synthetic_data.py` + `tests/test_core.py` +
-      `requirements.txt` → move under `legacy/` (or document as LEGACY).
-    - `ml/checkout_model.joblib` (RandomForest, legacy) vs
-      `ml/models/smartqueue_ml_v1.joblib` (active XGBoost bundle) — joblib
-      files are gitignored; document how model ships (re-train script +
-      `scripts/train_ml_models.py`).
-11. **SmartQueue_Final packaging** (same parent dir; NO target/, .venv/,
-    .class, logs, ADS files, secrets) + 24-item owner report — NOT started.
+7. **DONE: No role-based security (gap #7).** Not implemented. README.md
+   and `docs/ARCHITECTURE.md` document the limitation with concrete production
+   hardening guidance (Spring Security, HTTPS, ML-sidecar API key).
+8. **DONE: Python tests for `ml_service/` (gap #8, commit 52edf76).**
+   `ml_service/tests/test_api.py` — 11 tests via FastAPI `TestClient`
+   (health 200/503, predict 200, 422 missing/invalid fields, day-of-week as
+   string, 503 unloaded bundle). All 11 pass. `.venv/` recreated (needed by
+   sidecar) and used to run them.
+9. **DONE: Docs (gap #9).** Root `README.md` rewritten to the actual
+   Spring Boot 4 + PostgreSQL + ML-sidecar stack. Added `docs/UPDATES.md`,
+   `docs/DATABASE.md`, `docs/ML.md`, `docs/API.md`, `docs/TESTING.md`,
+   `docs/ARCHITECTURE.md`. NOTE: `docs/diagrams/` (ERD + DFD L0/L1/L2, phases
+   10–11) still MISSING — the phase-10/11 diagram deliverable.
+10. **DONE: Architecture cleanup (gap #10, commit 0280c31).**
+    - All **`*:Zone.Identifier` ADS files** deleted (incl. the git broken-ref one).
+    - `backend/data/smartqueue.mv.db` (H2) deleted.
+    - `backend/target/` + `.venv/` removed from the working copy (`.venv/` was
+      later recreated because the ML sidecar needs it to run).
+    - Legacy moved under `legacy/`: `app/`, `scripts/train_model.py`,
+      `scripts/generate_synthetic_data.py`, `tests/test_core.py`,
+      `requirements.txt`.
+    - `ml/checkout_model.joblib` (RandomForest legacy) stays gitignored;
+      `scripts/train_ml_models.py` + `docs/ML.md` document the active
+      `smartqueue_ml_v1.joblib`.
+11. **DONE: SmartQueue_Final packaging + owner report (gap #11).**
+    `/home/kiit/omniclaude/se/queue management - Copy/SmartQueue_Final/SmartQueue/`
+    contains backend+jar, frontend, ml, ml_service, .venv, data, scripts,
+    docs (all 6 new), legacy, README, `OWNER_REPORT.md` (24-item inventory).
+    Excluded: `.git`, ADS streams, logs, `__pycache__`, Zone.Identifier.
 12. **Runtime env**: `mvn` NOT on PATH in WSL sessions — use
     `~/tools/apache-maven-3.9.16/bin/mvn` with `JAVA_HOME=~/tools/jdk-21.0.12.1+1`;
     `mvnw` wrapper is present but bare (no distribution downloaded). Run tests:
