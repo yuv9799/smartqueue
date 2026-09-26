@@ -1,3 +1,5 @@
+[LEGACY — pre-merge architecture, not maintained. Current stack: Java/Spring Boot + PostgreSQL + ML sidecar]
+
 # Model comparison
 
 These results use **synthetic simulation data**, not observations from a real store.

@@ -82,9 +82,9 @@ counter expected to become free first based on predicted service time.
 ### 1. Database
 
 ```sql
-CREATE DATABASE smartqueue_db;
+CREATE DATABASE smartqueue;
 CREATE USER smartqueue_user WITH PASSWORD 'your_password';
-GRANT ALL PRIVILEGES ON DATABASE smartqueue_db TO smartqueue_user;
+GRANT ALL PRIVILEGES ON DATABASE smartqueue TO smartqueue_user;
 ```
 
 Set the password environment variable before running:
@@ -104,7 +104,7 @@ mvn package -DskipTests       # or: mvn compile
 
 ```bash
 cd ml_service
-uvicorn main:app --host 0.0.0.0 --port 8001 &
+uvicorn ml_service.service:app --host 0.0.0.0 --port 8001 &
 ```
 
 ### 4. Run
@@ -135,30 +135,33 @@ and HTTPS. API key authentication on the ML sidecar is also recommended.
 
 ```
 SmartQueue/
-├── backend/          Spring Boot application
-│   └── src/
-│       ├── main/java/com/smartqueue/
-│       │   ├── controller/   REST controllers
-│       │   ├── dto/          Request/response records
-│       │   ├── model/        JPA entities
-│       │   ├── repository/   Spring Data JPA repositories
-│       │   └── service/      Business logic
-│       └── main/resources/
-│           ├── static/       Frontend (HTML/JS/CSS)
-│           └── application.properties
-├── ml/               Model training scripts
-├── ml_service/       FastAPI ML sidecar
+├── backend/          Spring Boot application (Java 21)
+│   ├── src/main/java/com/smartqueue/
+│   │   ├── controller/   REST controllers
+│   │   ├── dto/          Request/response records
+│   │   ├── model/        JPA entities
+│   │   ├── repository/   Spring Data JPA repositories
+│   │   └── service/      Business logic
+│   └── src/main/resources/
+│       ├── static/       Frontend (HTML/JS/CSS/SPA)
+│       └── application.properties
+├── ml/models/        Trained XGBoost model bundle
+├── ml_service/       FastAPI ML sidecar (:8001)
 ├── data/             CSV training data
-├── scripts/          Utility scripts
-├── docs/             Architecture docs
+├── scripts/          ML training scripts
+├── docs/             Architecture, API, DB, ML, testing docs
+│   └── diagrams/     ERD + DFD L0/L1/L2 (Mermaid source)
 └── legacy/           Archived Python/SQLite prototype
 ```
 
-## Model
+## ML Model
 
-The `smartqueue_ml_v1.joblib` XGBoost model predicts checkout duration from:
-`item_count`, `payment_method` (card/cash/digital encoded), `has_bulk_items`,
-`has_express`, `has_vip`, `hour_of_day`, `day_of_week`.
+The `smartqueue_ml_v1.joblib` XGBoost bundle provides three predictions:
+`predicted_seconds` (service time), `wait_seconds` (queue wait),
+`abandonment_probability` (0–1). Features used: `basket_items`,
+`payment_method` (UPI/CARD/CASH), `assistance_required`, `open_counters`,
+`queue_length`, `queue_position`, `counter_load_minutes`, `hour`,
+`day_of_week`, `is_weekend`, `is_peak`.
 
-If the ML sidecar is unreachable, a deterministic rule-based formula is used:
-`base_time + (item_count × per_item_time)`, adjusted by payment method.
+If the ML sidecar is unreachable or times out, a deterministic rule-based
+formula (clamped 45–900s) is used as fallback.

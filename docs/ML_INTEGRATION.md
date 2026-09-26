@@ -1,3 +1,5 @@
+[LEGACY — pre-merge architecture, not maintained. Current stack: Java/Spring Boot + PostgreSQL + ML sidecar]
+
 # ML Integration — SmartQueue Copy
 
 > **Scope:** This document describes the ML integration done in the **isolated copy**

@@ -1,0 +1,25 @@
+# SmartQueue DFD Level 1 — Main Processes
+
+flowchart TD
+    subgraph SmartQueue["SmartQueue Backend"]
+        P0([External Actors])
+
+        P1["1.0 Queue Management\nPOST /api/queue/join\nGET /api/queue/active\nPATCH /api/queue/{id}/reassign\nPOST /api/queue/{id}/cancel"]
+        P2["2.0 Counter Service\nPOST /api/queue/counters/{id}/next\nPOST /api/queue/{id}/complete\nPATCH /api/counters/{id}/status"]
+        P3["3.0 ML Prediction\nMlPredictionClient → FastAPI :8001\nsmartqueue_ml_v1 XGBoost bundle"]
+        P4["4.0 Reporting / History\nGET /api/queue/history\nGET /api/dashboard/stats\nGET /api/reports/overview"]
+        P5["5.0 PostgreSQL Persistence\nqueue_entries table\ncheckout_counters table"]
+        P6["6.0 Frontend (static SPA)\nGET / → index.html\nGET /app.js, /style.css"]
+    end
+
+    P0 -->|"join / cancel / reassign"| P1
+    P0 -->|"start / complete / open-close"| P2
+    P1 -->|"needs predicted service time"| P3
+    P1 -->|"store queue entry"| P5
+    P2 -->|"update status / timestamps"| P5
+    P3 -->|"predicted seconds + risk"| P1
+    P4 --> P5
+    P5 --> P4
+    P6 --> P1
+    P6 --> P2
+    P6 --> P4

@@ -1,0 +1,32 @@
+# SmartQueue ERD — ACTUAL FINAL DATABASE (PostgreSQL 16)
+
+erDiagram
+    CHECKOUT_COUNTERS {
+        bigint id PK
+        varchar(100) name "NOT NULL, UNIQUE"
+        varchar(10) status "OPEN | CLOSED, NOT NULL"
+    }
+
+    QUEUE_ENTRIES {
+        bigint id PK
+        varchar(20) token "NOT NULL, UNIQUE — format SQ-NNNN"
+        varchar(60) customer_name "NOT NULL"
+        int item_count "NOT NULL, >= 0"
+        varchar(10) payment_method "UPI | CARD | CASH, NOT NULL"
+        varchar(15) priority_type "REGULAR | ASSISTANCE, NOT NULL"
+        varchar(15) status "WAITING | SERVING | COMPLETED | CANCELLED, NOT NULL"
+        int predicted_service_seconds "NOT NULL — ML or rule-based seconds"
+        varchar(50) prediction_source "NOT NULL — smartqueue_ml_v1 | RULE_BASELINE_V1"
+        bigint counter_id FK "NOT NULL → CHECKOUT_COUNTERS.id"
+        timestamp arrival_time "NOT NULL — UTC"
+        timestamp assigned_at "NOT NULL — UTC"
+        timestamp service_started_at "nullable"
+        timestamp service_completed_at "nullable"
+        int actual_service_seconds "nullable"
+        int actual_wait_seconds "nullable"
+        bigint estimated_wait_seconds "nullable"
+        double abandonment_probability "nullable — 0..1 ML prediction"
+        timestamp cancelled_at "nullable"
+    }
+
+    QUEUE_ENTRIES ||--o{ CHECKOUT_COUNTERS : "assigned_to"

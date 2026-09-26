@@ -1,0 +1,40 @@
+# SmartQueue DFD Level 2 — Queue Join Flow (detailed)
+
+flowchart TD
+    subgraph Input["External: Customer"]
+        A1["customerName, itemCount,\npaymentMethod, priorityType"]
+    end
+
+    subgraph P1["1.1 Validate Input"]
+        V1{"itemCount ≥ 0?\npaymentMethod valid?\npriorityType valid?"}
+        V2["400 Bad Request"]
+    end
+
+    subgraph P2["1.2 ML Prediction"]
+        P3["MlPredictionClient\nRestClient → FastAPI :8001"]
+        M1["smartqueue_ml_v1 XGBoost\nservice_model + wait_model\n+ abandon_model"]
+        F1["RULE_BASELINE_V1\nclamped 45-900s fallback"]
+        P3 --> M1
+        P3 -.->|"503 timeout / unreachable"| F1
+    end
+
+    subgraph P3["1.3 Counter Allocation"]
+        C1["CounterAllocator.allocateCounter()\nPriorityQueue min-heap\nleast current workload"]
+    end
+
+    subgraph P4["1.4 Token Generation + Persistence"]
+        T1["saveAndFlush → get ID\nformat SQ-%04d\nsetToken → save"]
+        DB["PostgreSQL\nqueue_entries table"]
+    end
+
+    subgraph P5["1.5 Response"]
+        R1["201 Created:\ntoken, counter, predictedServiceSeconds,\nest Wait, abandonmentRisk,\npredictionSource"]
+    end
+
+    A1 --> V1
+    V1 -->|"valid"| P2
+    V1 -->|"invalid"| V2
+    P2 -->|"predicted seconds"| P3
+    P3 -->|"counter assigned"| P4
+    P4 --> DB
+    DB --> R1

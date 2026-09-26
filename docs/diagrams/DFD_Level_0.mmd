@@ -1,0 +1,18 @@
+# SmartQueue DFD Level 0 — Context Diagram
+
+flowchart LR
+    subgraph SmartQueue["SmartQueue System"]
+        SM([SmartQueue])
+    end
+
+    C([Customer])
+    S([Store Staff])
+    M([Manager])
+
+    C -->|"POST /api/queue/join\nGET /api/queue/active\nPOST /api/queue/{id}/cancel\nPOST /api/queue/{id}/complete"| SM
+    S -->|"POST /api/queue/counters/{id}/next\nPATCH /api/counters/{id}/status\nPATCH /api/queue/{id}/reassign"| SM
+    M -->|"GET /api/dashboard/stats\nGET /api/reports/overview\nGET /api/queue/history"| SM
+
+    SM -.->|"predicted service time\nwait time\nabandonment risk"| C
+    SM -.->|"token\ncounter assignment\nqueue status"| S
+    SM -.->|"stats\nanalytics\nhistorical data"| M

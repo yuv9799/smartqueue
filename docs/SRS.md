@@ -1,3 +1,5 @@
+[LEGACY — pre-merge architecture, not maintained. Current stack: Java/Spring Boot + PostgreSQL + ML sidecar]
+
 # SmartQueue Software Requirements Specification
 
 ## 1. Purpose
